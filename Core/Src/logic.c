@@ -5,16 +5,20 @@ uint8_t ActiveGas = LEFT;
 uint8_t OldActiveGas = LEFT;
 uint8_t ConcOldOK = 0;
 uint8_t ActiveCylinder = LEFT;
-extern uint8_t OneSeconTick; //needed for transmitting ticks from timer every second
 uint8_t flagLEDodd = 0; //flip-flop var. for led on-off
 
-uint8_t SilentTimer = 0;
-uint8_t ConcNORMCounter = 0; //Counter for delay when conc. was off but now is on
-uint8_t TickForward = 0;
-uint8_t BlinkFlag = 0;
-uint8_t ConcSIGCounter = 0;  //beep duration when concentrator is off
-uint8_t UPS_SoundActive = 0;
-uint8_t PowerAlarmActivated = 0;
+extern uint8_t OneSeconTick; //needed for transmitting ticks from timer every second
+uint8_t  TickForward = 0;
+
+uint8_t  BlinkFlag = 0;
+uint8_t  UPS_SoundActive = 0;
+uint8_t  PowerAlarmActivated = 0;
+/*All counters are back counting*/
+uint8_t  CounterSilent = 0;
+uint8_t  CounterConcNORM = 0; //Counter for delay when conc. was off but now is on
+uint8_t  CounterConcSIG = 0;  //beep duration when concentrator is off
+uint8_t  CounterValveSuspend = 0;
+uint16_t CounterEmergWork = 0;
 
 extern uint32_t NoLinkCounter;
 
@@ -85,10 +89,10 @@ void make_action(const TypeVolt* Volt){
 						ActiveCylinder = RIGHT;
         }
         if((ConcOldOK == 0)&&(!Alarm.ConcentratorNOT_OK)){
-          ConcNORMCounter = CONC_DELAY;
+          CounterConcNORM = CONC_DELAY;
           ConcOldOK = 1;
         }
-        if((ConcOldOK)&&(ConcNORMCounter == 0))ActiveGas = CONCENTRATOR;
+        if((ConcOldOK)&&(CounterConcNORM == 0))ActiveGas = CONCENTRATOR;
         //swap button
         if((ButtSwCounter == BUTT_TRIM)&&(flagOldSwButt == 0)){
           if((Volt->PressRight > SWTCH_threshold) || 
@@ -115,10 +119,10 @@ void make_action(const TypeVolt* Volt){
 						ActiveCylinder = LEFT;
         }
         if((ConcOldOK == 0)&&(!Alarm.ConcentratorNOT_OK)){
-          ConcNORMCounter = CONC_DELAY;
+          CounterConcNORM = CONC_DELAY;
           ConcOldOK = 1;
         }
-        if((ConcOldOK)&&(ConcNORMCounter == 0))ActiveGas = CONCENTRATOR;
+        if((ConcOldOK)&&(CounterConcNORM == 0))ActiveGas = CONCENTRATOR;
         //swap button
         if((ButtSwCounter == BUTT_TRIM)&&(flagOldSwButt == 0)){
           if((Volt->PressLeft > SWTCH_threshold) || 
@@ -139,7 +143,7 @@ void make_action(const TypeVolt* Volt){
         /*       logic          */
         //pressure criteria
         if(Alarm.ConcentratorNOT_OK){
-          ConcSIGCounter = CONC_SIG_DUR;
+          CounterConcSIG = CONC_SIG_DUR;
           ActiveGas = ActiveCylinder;
           ConcOldOK = 0;
         }
@@ -153,7 +157,7 @@ void make_action(const TypeVolt* Volt){
 		}
 	
 		if(ROLE == RECEIVER){
-			if((OldActiveGas == CONCENTRATOR) && (ActiveGas != CONCENTRATOR)) ConcSIGCounter = CONC_SIG_DUR;
+			if((OldActiveGas == CONCENTRATOR) && (ActiveGas != CONCENTRATOR)) CounterConcSIG = CONC_SIG_DUR;
 			
 			
 			switch(ActiveGas){
@@ -162,7 +166,7 @@ void make_action(const TypeVolt* Volt){
         HAL_GPIO_WritePin(GPIOB, LED_right_gas, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(GPIOB, LED_conc, GPIO_PIN_RESET);
         if((ConcOldOK == 0)&&(!Alarm.ConcentratorNOT_OK)){
-          ConcNORMCounter = CONC_DELAY;
+          CounterConcNORM = CONC_DELAY;
           ConcOldOK = 1;
         }
         break;
@@ -171,7 +175,7 @@ void make_action(const TypeVolt* Volt){
         HAL_GPIO_WritePin(GPIOB, LED_right_gas, GPIO_PIN_SET);
         HAL_GPIO_WritePin(GPIOB, LED_conc, GPIO_PIN_RESET);
         if((ConcOldOK == 0)&&(!Alarm.ConcentratorNOT_OK)){
-          ConcNORMCounter = CONC_DELAY;
+          CounterConcNORM = CONC_DELAY;
           ConcOldOK = 1;
         }
         break;
@@ -180,7 +184,7 @@ void make_action(const TypeVolt* Volt){
         HAL_GPIO_WritePin(GPIOB, LED_right_gas, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(GPIOB, LED_conc, GPIO_PIN_SET);
         if(Alarm.ConcentratorNOT_OK){
-          ConcSIGCounter = CONC_SIG_DUR;
+          CounterConcSIG = CONC_SIG_DUR;
           ConcOldOK = 0;
         }
         break;
@@ -276,7 +280,7 @@ void make_action(const TypeVolt* Volt){
     /*           BUTTONS PROCESSING                                           */
     /* ---------------------------------------------------------------------- */
     if((ButtAlCounter == BUTT_TRIM)&&(flagOldAlButt == 0)){
-      if((Alarm.ConcentratorMax)||(Alarm.CylindersEmpty)||(Alarm.LineMax)||(Alarm.LineMin))SilentTimer = ALRM_PAUSE;
+      if((Alarm.ConcentratorMax)||(Alarm.CylindersEmpty)||(Alarm.LineMax)||(Alarm.LineMin))CounterSilent = ALRM_PAUSE;
       if(Alarm.PowerOff)UPS_SoundActive = 0;
       flagOldAlButt = 1;
     }
@@ -296,11 +300,11 @@ void make_action(const TypeVolt* Volt){
       if((Alarm.ConcentratorMax)||(Alarm.CylindersEmpty)||(Alarm.LineMax)||(Alarm.LineMin)){
         //High priority alarms.
         HAL_GPIO_WritePin(GPIOC, LED_alarm, GPIO_PIN_SET);
-        if(SilentTimer)Buzzer(0); else Buzzer(1);
+        if(CounterSilent)Buzzer(0); else Buzzer(1);
       }else{
         if(Alarm.PowerOff){
           //Lower priority alarm. Power off.
-          if(ConcSIGCounter){
+          if(CounterConcSIG){
            Buzzer(1);
           }else{
             if(BlinkFlag){
@@ -312,13 +316,13 @@ void make_action(const TypeVolt* Volt){
             }
           }
         }else{
-          if(ConcSIGCounter){
+          if(CounterConcSIG){
             Buzzer(1);
           }else{
             HAL_GPIO_WritePin(GPIOC, LED_alarm, GPIO_PIN_RESET);
             Buzzer(0);
           }
-          SilentTimer = 0;
+          CounterSilent = 0;
         }
       }
     }			
@@ -327,9 +331,11 @@ void make_action(const TypeVolt* Volt){
     /* ---------------------------------------------------------------------- */		
 		if(TickForward){
       if(BlinkFlag) BlinkFlag = 0; else BlinkFlag = 1;
-      if(SilentTimer) SilentTimer--;
-      if(ConcNORMCounter) ConcNORMCounter--;
-      if(ConcSIGCounter) ConcSIGCounter--;
+      if(CounterSilent) CounterSilent--;
+      if(CounterConcNORM) CounterConcNORM--;
+      if(CounterConcSIG) CounterConcSIG--;
+			if(CounterValveSuspend) CounterValveSuspend--;
+			if(CounterEmergWork) CounterEmergWork--;			
       TickForward = 0;
     }
 		osDelay(3);

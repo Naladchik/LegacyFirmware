@@ -12,6 +12,8 @@
 #define CONC_DELAY            	10  //Delay for concentrator again-on
 #define SWTCH_threshold (double)10.0 //threshold to switch to the next gas line
 #define ALRM_threshold  (double)40.0 //threshold to activate alarm (if second cylinder <= SWTCH_threshold
+#define VALVE_SUSPEND_T					7  //if a valve is suspended (open but no pressure in line) time
+#define EMERGENCY_MODE_T				180 //emergency time (suspended valve) before next try
 #define EXPLORE 0
 
 
