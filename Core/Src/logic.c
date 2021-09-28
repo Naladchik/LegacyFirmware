@@ -2,6 +2,7 @@
 #include "cmsis_os.h"
 
 uint8_t ActiveGas = LEFT;
+uint8_t EmergGasWas = LEFT;
 uint8_t OldActiveGas = LEFT;
 uint8_t ConcOldOK = 0;
 uint8_t ActiveCylinder = LEFT;
@@ -152,7 +153,19 @@ void make_action(const TypeVolt* Volt){
           flagOldSwButt = 1;
         }
         break;
-    default: break;
+			case(BOTH_VALVES):
+				HAL_GPIO_WritePin(GPIOC, LEFT_VLV, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOC, RIGHT_VLV, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOB, LED_left_gas, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_right_gas, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_conc, GPIO_PIN_RESET);
+				if(CounterEmergWork == 0){//time to try to work normally
+					ActiveGas = EmergGasWas;
+					CounterEmergWork = 0;
+					CounterValveSuspend = 0;
+				}
+				break;
+    default: NVIC_SystemReset(); break;
     }
 		}
 	
@@ -188,7 +201,12 @@ void make_action(const TypeVolt* Volt){
           ConcOldOK = 0;
         }
         break;
-			default: break;
+			case(BOTH_VALVES):
+				HAL_GPIO_WritePin(GPIOB, LED_left_gas, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_right_gas, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOB, LED_conc, GPIO_PIN_RESET);
+				break;
+			default: NVIC_SystemReset(); break;
 			}
 		}
 		
@@ -231,13 +249,22 @@ void make_action(const TypeVolt* Volt){
        }else{
          Alarm.CylindersEmpty = 0;
        }
-   //Line is high
-    if(HAL_GPIO_ReadPin(GPIOB, SMC_L_MIN)){
+   //Line is low
+    if(HAL_GPIO_ReadPin(GPIOB, SMC_L_MIN)){			
+			if((CounterValveSuspend == 0) && (Alarm.LineMin == 0))CounterValveSuspend = VALVE_SUSPEND_T;  //Situation just happened
+			if((CounterValveSuspend == 0) && (Alarm.LineMin == 1)){ //Time to switch on the emergency state
+				EmergGasWas = ActiveGas; //save the context
+				ActiveGas = BOTH_VALVES;				
+				CounterEmergWork = EMERGENCY_MODE_T;
+			}
 			Alarm.LineMin = 1;
     }else{
 			Alarm.LineMin = 0;
+			CounterValveSuspend = 0;
     }
-    //Line is low
+		//Emergency situation - line is low signal
+		if(ActiveGas == BOTH_VALVES) Alarm.LineMin = 1;
+    //Line is high
     if(HAL_GPIO_ReadPin(GPIOB, SMC_L_MAX)){
       Alarm.LineMax = 1;
     }else{
