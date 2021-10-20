@@ -96,6 +96,7 @@ void make_action(const TypeVolt* Volt){
         if((ConcOldOK)&&(CounterConcNORM == 0))ActiveGas = CONCENTRATOR;
         //swap button
         if((ButtSwCounter == BUTT_TRIM)&&(flagOldSwButt == 0)){
+					CounterEmergWork = 0; //try to return to normal mode
           if((Volt->PressRight > SWTCH_threshold) || 
 						((Volt->PressRight <= SWTCH_threshold) && (Volt->PressRight <= SWTCH_threshold))){
             ActiveGas = RIGHT;
