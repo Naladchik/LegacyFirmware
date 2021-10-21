@@ -16,6 +16,7 @@ typedef struct AlarmStruct{
   uint8_t CylindersEmpty:1;
   uint8_t PowerOff:1;
   uint8_t BatteryOut:1;
+	uint8_t EmergState:1; //system is in emergency state
 } TypeAlarm;
 
 void make_action(const TypeVolt* Volt);

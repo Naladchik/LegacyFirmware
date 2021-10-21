@@ -153,7 +153,12 @@
         <Ww>
           <count>0</count>
           <WinNumber>1</WinNumber>
-          <ItemText>rssi_out</ItemText>
+          <ItemText>CounterEmergWork</ItemText>
+        </Ww>
+        <Ww>
+          <count>1</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>CounterValveSuspend</ItemText>
         </Ww>
       </WatchWindow1>
       <Tracepoint>

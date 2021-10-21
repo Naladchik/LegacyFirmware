@@ -37,7 +37,7 @@ uint8_t logic_q_buff[MESS_LEN];
 uint8_t LEDvalueL;
 uint8_t LEDvalueR;
 
-TypeAlarm Alarm = {0, 0, 1, 0, 0, 0, 0};
+TypeAlarm Alarm = {0, 0, 1, 0, 0, 0, 0, 0};
 uint8_t ALRM_BYTE;
 uint16_t RSSI_WORD;
 
@@ -96,7 +96,6 @@ void make_action(const TypeVolt* Volt){
         if((ConcOldOK)&&(CounterConcNORM == 0))ActiveGas = CONCENTRATOR;
         //swap button
         if((ButtSwCounter == BUTT_TRIM)&&(flagOldSwButt == 0)){
-					CounterEmergWork = 0; //try to return to normal mode
           if((Volt->PressRight > SWTCH_threshold) || 
 						((Volt->PressRight <= SWTCH_threshold) && (Volt->PressRight <= SWTCH_threshold))){
             ActiveGas = RIGHT;
@@ -160,10 +159,15 @@ void make_action(const TypeVolt* Volt){
         HAL_GPIO_WritePin(GPIOB, LED_left_gas, GPIO_PIN_SET);
         HAL_GPIO_WritePin(GPIOB, LED_right_gas, GPIO_PIN_SET);
         HAL_GPIO_WritePin(GPIOB, LED_conc, GPIO_PIN_RESET);
+			  //swap button
+        if((ButtSwCounter == BUTT_TRIM)&&(flagOldSwButt == 0)){
+					CounterEmergWork = 0; //try to return to normal mode
+          flagOldSwButt = 1;
+        }
 				if(CounterEmergWork == 0){//time to try to work normally
 					ActiveGas = EmergGasWas;
-					CounterEmergWork = 0;
-					CounterValveSuspend = 0;
+					CounterValveSuspend = VALVE_SUSPEND_T;
+					Alarm.EmergState = 0;
 				}
 				break;
     default: NVIC_SystemReset(); break;
@@ -251,12 +255,13 @@ void make_action(const TypeVolt* Volt){
          Alarm.CylindersEmpty = 0;
        }
    //Line is low
-    if(HAL_GPIO_ReadPin(GPIOB, SMC_L_MIN)){			
+    if(HAL_GPIO_ReadPin(GPIOB, SMC_L_MIN)){
 			if((CounterValveSuspend == 0) && (Alarm.LineMin == 0))CounterValveSuspend = VALVE_SUSPEND_T;  //Situation just happened
-			if((CounterValveSuspend == 0) && (Alarm.LineMin == 1)){ //Time to switch on the emergency state
+			if((CounterValveSuspend == 0) && (Alarm.LineMin == 1) && (ActiveGas != BOTH_VALVES)){ //Time to switch to the emergency state
 				EmergGasWas = ActiveGas; //save the context
 				ActiveGas = BOTH_VALVES;				
 				CounterEmergWork = EMERGENCY_MODE_T;
+				Alarm.EmergState = 1;
 			}
 			Alarm.LineMin = 1;
     }else{
@@ -325,7 +330,7 @@ void make_action(const TypeVolt* Volt){
       if(BlinkFlag) HAL_GPIO_WritePin(GPIOC, LED_alarm, GPIO_PIN_SET); else HAL_GPIO_WritePin(GPIOC, LED_alarm, GPIO_PIN_RESET);
       
     }else{
-      if((Alarm.ConcentratorMax)||(Alarm.CylindersEmpty)||(Alarm.LineMax)||(Alarm.LineMin)){
+      if((Alarm.ConcentratorMax)||(Alarm.CylindersEmpty)||(Alarm.LineMax)||(Alarm.LineMin)||(Alarm.EmergState)){
         //High priority alarms.
         HAL_GPIO_WritePin(GPIOC, LED_alarm, GPIO_PIN_SET);
         if(CounterSilent)Buzzer(0); else Buzzer(1);
